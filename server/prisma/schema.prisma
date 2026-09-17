@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Person {
+  id             String           @id @default(uuid())
+  name           String
+  email          String           @unique
+  role           String
+  avatarInitials String
+  commitments    Commitment[]     @relation("OwnerCommitments")
+  stakeholderFor Commitment[]     @relation("StakeholderCommitments")
+  dependencies   TaskDependency[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Meeting {
+  id            String   @id @default(uuid())
+  title         String
+  date          DateTime
+  duration      Int      // in minutes
+  participants  String   // JSON string
+  transcriptRaw String
+  createdAt     DateTime @default(now())
+}
+
+model EmailThread {
+  id           String   @id @default(uuid())
+  subject      String
+  participants String   // JSON string
+  emails       Email[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Email {
+  id         String      @id @default(uuid())
+  threadId   String
+  thread     EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender     String
+  recipients String      // JSON string
+  body       String
+  sentAt     DateTime
+  createdAt  DateTime    @default(now())
+}
+
+model VoiceNote {
+  id            String   @id @default(uuid())
+  title         String
+  transcriptRaw String
+  recordedAt    DateTime
+  createdAt     DateTime @default(now())
+}
+
+model CalendarEvent {
+  id        String   @id @default(uuid())
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  attendees String   // JSON string
+  location  String?
+  createdAt DateTime @default(now())
+}
+
+model Commitment {
+  id              String              @id @default(uuid())
+  title           String
+  description     String
+  ownerId         String?
+  owner           Person?             @relation("OwnerCommitments", fields: [ownerId], references: [id])
+  stakeholderId   String?
+  stakeholder     Person?             @relation("StakeholderCommitments", fields: [stakeholderId], references: [id])
+  dueDate         DateTime?
+  originalDueDate DateTime?
+  status          String              @default("PENDING")
+  priority        String              @default("MEDIUM")
+  riskLevel       String              @default("LOW")
+  confidence      Float               @default(0.9)
+  ownershipStatus String              @default("CONFIRMED")
+  isUnassigned    Boolean             @default(false)
+  sourceType      String
+  sourceId        String
+  notes           String?
+  history         CommitmentHistory[]
+  evidence        SourceEvidence[]
+  dependencies    TaskDependency[]
+  notifications   Notification[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model CommitmentHistory {
+  id           String     @id @default(uuid())
+  commitmentId String
+  commitment   Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  changedField String
+  oldValue     String?
+  newValue     String?
+  reason       String?
+  changedBy    String     @default("System AI")
+  changedAt    DateTime   @default(now())
+}
+
+model TaskDependency {
+  id                String     @id @default(uuid())
+  commitmentId      String
+  commitment        Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  dependsOnPersonId String
+  dependsOnPerson   Person     @relation(fields: [dependsOnPersonId], references: [id])
+  type              String
+  expectedBy        DateTime?
+  resolvedAt        DateTime?
+  createdAt         DateTime   @default(now())
+}
+
+model SourceEvidence {
+  id           String     @id @default(uuid())
+  commitmentId String
+  commitment   Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  sourceType   String
+  sourceId     String
+  excerpt      String
+  evidenceDate DateTime
+  confidence   Float      @default(0.9)
+  createdAt    DateTime   @default(now())
+}
+
+model ChatConversation {
+  id        String        @id @default(uuid())
+  userId    String        @default("Arjun Malhotra")
+  title     String?       @default("Executive Assistant Chat")
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ChatMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  evidenceRefs   String?
+  createdAt      DateTime         @default(now())
+}
+
+model Notification {
+  id           String      @id @default(uuid())
+  type         String
+  title        String
+  message      String
+  isRead       Boolean     @default(false)
+  commitmentId String?
+  commitment   Commitment? @relation(fields: [commitmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+}
